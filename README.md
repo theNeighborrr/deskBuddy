@@ -2,9 +2,12 @@
 
 A tiny, colorful desk companion built on a repurposed NM-TV-154 ESP32 display. **DeskBuddy is a working name.**
 
-Version **0.5.0** brings seven animated characters to one Companion page, alongside a clock, weather, and Wi-Fi signal display. Settings live in a phone dashboard on your local network.
+Version **0.6.0** adds corrected panel colors, animated weather artwork, a seven-day forecast, avatar rotation on each Companion visit, and a phone remote that works while the display stays active. Settings live in a phone dashboard on your local network.
 
 ![Seven character designs](previews/v050-art-lineup.png)
+
+![Current weather on the device](previews/v060-weather.png)
+![Seven-day forecast on the device](previews/v060-weekly.png)
 
 ## Use it
 
@@ -24,13 +27,14 @@ See the [field guide](docs/field-guide.md) for setup, controls, updates, and tro
 | Companion | Choose Weather Cloud, Paperclip, Hacker Dolphin, Money Sun, Mr. Meeseeks, Pokémon Parade, or Joe Camel. |
 | Clock | Internet time, seven timezone choices, and 12/24-hour display. |
 | Weather | City search, temperature and conditions, Fahrenheit/Celsius, and labeled cached readings. |
+| This Week | Seven daily weather icons, high/low ranges, and precipitation chance. |
 | Wi-Fi Signal | Signal strength, four bars, quality label, and about 45 seconds of history. |
 
-Weather Cloud changes with the selected city's conditions. Every character has two animation frames. The dashboard preview is static. You can rename the device, arrange or disable pages, and set automatic page switching.
+Weather Cloud changes with the selected city's conditions. Every character has two animation frames. The dashboard preview is static. You can rename the device, arrange or disable five pages, set automatic page switching, and cycle avatars on each visit. Phone controls include Previous, Home, Next, direct page selection, and pause/resume.
 
 ## Build and check
 
-Toolchain used for 0.5.0: Arduino CLI 1.5.1, Arduino-ESP32 3.3.11, and TFT_eSPI 2.5.43. Put Arduino CLI on PATH; install the pinned core and library as described in the [maintainer guide](docs/maintenance.md).
+Toolchain used for 0.6.0: Arduino CLI 1.5.1, Arduino-ESP32 3.3.11, and TFT_eSPI 2.5.43. Put Arduino CLI on PATH; install the pinned core and library as described in the [maintainer guide](docs/maintenance.md).
 
 ```powershell
 .\build.ps1 -Jobs 2
@@ -45,7 +49,7 @@ The build script supplies the required display configuration and partition schem
 - `DeskBuddy/` — firmware, dashboard, display settings, and public verification key.
 - `art/` — code-native pixel artwork generator; Python standard library only.
 - `tests/` — dashboard behavior checks using a simulated browser environment.
-- `docs/` — field guide, maintenance, roadmap, and 0.5.0 validation summary.
+- `docs/` — field guide, maintenance, roadmap, source hashes, and versioned validation summaries.
 - `previews/` — character lineup.
 - `build.ps1` and `sign-update.cjs` — build and signed-update tools.
 
@@ -53,7 +57,7 @@ This repository starts with the source used by the device-tested 0.5.0 build. Co
 
 ## Status and attribution
 
-The 0.5.0 build was installed and checked on the target hardware. See [validation and limits](docs/validation-0.5.0.md). Naming remains open and countdown is deferred; future app ideas are tracked in the [roadmap](docs/roadmap.md).
+The 0.5.0 build was installed and checked on the target hardware. The current changes and validation are tracked in [0.6.0 notes](docs/validation-0.6.0.md); the [0.5.0 validation](docs/validation-0.5.0.md) remains as history. Naming remains open and countdown is deferred; future app ideas are tracked in the [roadmap](docs/roadmap.md).
 
 Weather data: [Open-Meteo](https://open-meteo.com/), with CC BY 4.0 attribution. Display library: [TFT_eSPI](https://github.com/Bodmer/TFT_eSPI), whose [license is included](TFT_eSPI-license.txt). Hardware reference: [NM-TV-154](https://github.com/RockBase-iot/NM-TV-154).
 

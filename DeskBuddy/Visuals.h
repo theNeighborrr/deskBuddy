@@ -12,6 +12,8 @@ void footer(TFT_eSprite& f);
 void avatar(TFT_eSprite& f,uint8_t id,uint32_t now);
 const char* avatarCaption(uint8_t id);
 void weatherIcon(TFT_eSprite& f,int code,bool day,int x,int y);
+void weatherPage(TFT_eSprite& f,uint32_t now);
+void weeklyPage(TFT_eSprite& f,uint32_t now);
 void signalPage(TFT_eSprite& f);
 void bigText(TFT_eSprite& f,const char* text,int x,int y,uint8_t size,uint16_t color,uint16_t bg=BG);
 }

@@ -8,6 +8,8 @@ void tick();
 void openSetup();
 void closeSetup();
 bool inSetup();
+bool showingSetup();
+void hideSetup();
 bool connected();
 bool configured();
 bool clockReady();

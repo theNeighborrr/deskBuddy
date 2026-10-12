@@ -11,6 +11,7 @@
 #include "FirmwareUpdate.h"
 #include "Visuals.h"
 #include "AvatarLogic.h"
+#include "PageControl.h"
 using namespace Visuals;
 #include <esp_task_wdt.h>
 
@@ -21,13 +22,13 @@ constexpr const char* VERSION = FIRMWARE_VERSION;
 TFT_eSPI display;
 TFT_eSprite frame(&display);
 TouchInput input;
-uint8_t page = 0, rotation = 0;
+uint8_t rotation = 0;
 bool inverted = true;
 bool setupHoldFired = false;
 uint32_t tapCount = 0, holdCount = 0, lastFrame = 0, lastLog = 0;
 uint16_t rawTouch = 0;
 uint32_t greetingUntil = 0;
-uint32_t lastSwitch=0,settingsRevision=0;
+uint32_t settingsRevision=UINT32_MAX;
 bool startupHealthy=false;
 // Sixteen bright colors in a compact 28.8 KB indexed framebuffer.
 
@@ -56,7 +57,7 @@ void drawPage(uint32_t now) {
     centered("Keep your buddy plugged in",190,1,MUTED,BG);
     frame.pushSprite(0,0);return;
   }
-  if (BuddyNetwork::inSetup()) {
+  if (BuddyNetwork::showingSetup()) {
     frame.fillRect(0,0,240,3,CYAN);
     if(BuddyNetwork::connected()){
       centered("Phone dashboard",12,4,MINT,BG);
@@ -67,7 +68,7 @@ void drawPage(uint32_t now) {
       centered(BuddyNetwork::setupName(),159,1,INK,BG);
       String pass="Password: "+String(BuddyNetwork::setupPassword());centered(pass.c_str(),174,1,MINT,BG);
       centered("Then open http://192.168.4.1",192,1,MUTED,BG);
-      centered("Tap top: close dashboard",219,1,MUTED,BG);
+      centered("Tap top: back to companion",219,1,MUTED,BG);
       frame.pushSprite(0,0);return;
     }
     centered("Wi-Fi setup", 10, 4, MINT, BG);
@@ -78,16 +79,16 @@ void drawPage(uint32_t now) {
     centered(BuddyNetwork::setupPassword(), 137, 2, MINT, BG);
     centered("2. Open your browser", 168, 1, MUTED, BG);
     centered("http://192.168.4.1", 182, 2, INK, BG);
-    centered("Tap top: use offline / leave setup", 217, 1, MUTED, BG);
+    centered("Tap top: use display / setup stays open", 217, 1, MUTED, BG);
     frame.pushSprite(0, 0);
     return;
   }
   const auto& cfg=AppSettings::get();
-  page%=cfg.count;uint8_t app=cfg.order[page];
+  uint8_t page=PageControl::position(),app=PageControl::app();
   shell(frame,cfg.name,app,page,cfg.count);
   if(app==PAL){
-    avatar(frame,cfg.avatar,now);
-    String caption=String("> ")+avatarCaption(cfg.avatar);centered(caption.c_str(),205,1,CYAN,BG);
+    avatar(frame,PageControl::avatar(),now);
+    String caption=String("> ")+avatarCaption(PageControl::avatar());centered(caption.c_str(),205,1,CYAN,BG);
   }else if(app==CLOCK){
     frame.setTextColor(VIOLET,BG);frame.drawString(BuddyNetwork::zoneLabel(),16,56,2);
     struct tm local{};
@@ -105,28 +106,9 @@ void drawPage(uint32_t now) {
       centered("Waiting for internet time",145,1,MUTED,BG);
     }
   }else if(app==WEATHER){
-    auto weather=BuddyWeather::reading();String city=cfg.hasLocation?cfg.city:"Choose your city";
-    while(frame.textWidth(city,2)>208&&city.length()>3)city=city.substring(0,city.length()-4)+"...";
-    frame.setTextColor(YELLOW,BG);frame.drawString(city,16,55,2);
-    if(weather.available){
-      auto temp=[&](float c){return cfg.fahrenheit?c*1.8f+32:c;};char current[16],range[40];
-      snprintf(current,sizeof(current),"%.0f",temp(weather.temperature));
-      bigText(frame,current,16,87,strlen(current)>3?3:4,INK);
-      frame.setTextColor(YELLOW,BG);frame.drawString(cfg.fahrenheit?"deg F":"deg C",18,124,1);
-      weatherIcon(frame,weather.code,weather.day,186,102);
-      centered(BuddyWeather::description(weather.code),152,2,INK,BG);
-      snprintf(range,sizeof(range),"HIGH %.0f   /   LOW %.0f",temp(weather.high),temp(weather.low));centered(range,176,1,YELLOW,BG);
-      char age[48];long minutes=BuddyNetwork::clockReady()?max(0L,long((time(nullptr)-weather.observedAt)/60)):0;
-      if(!BuddyNetwork::connected())strcpy(age,"Offline / saved conditions");
-      else if(!BuddyNetwork::clockReady())strcpy(age,"Saved / syncing time");
-      else snprintf(age,sizeof(age),minutes>=30?"Older conditions / %ld min ago":"Updated %ld min ago",minutes);
-      centered(age,191,1,MUTED,BG);
-    }else{
-      centered(BuddyWeather::busy()?"Getting weather...":"Waiting for weather",106,2,YELLOW,BG);
-      centered("Set your city in phone settings",153,1,MUTED,BG);
-    }
-    centered("Weather by Open-Meteo",205,1,MUTED,BG);
+    weatherPage(frame,now);
   }else if(app==WIFI_SIGNAL){signalPage(frame);}
+  else if(app==WEEKLY){weeklyPage(frame,now);}
   footer(frame);
   if (input.down()) {
     uint32_t elapsed = now - input.pressedAt();
@@ -139,13 +121,11 @@ void drawPage(uint32_t now) {
 void applyGesture(Gesture event, const char* source) {
   if (event == Gesture::None) return;
   if(FirmwareUpdate::busy())return;
-  lastSwitch=millis();
-  if (BuddyNetwork::inSetup()) { BuddyNetwork::closeSetup(); page=0; }
-  else
-  if (event == Gesture::Tap) { page = (page + 1) % AppSettings::get().count; ++tapCount; }
-  else { page = 0; ++holdCount; greetingUntil = millis() + 2200; }
+  if (BuddyNetwork::showingSetup()) { BuddyNetwork::hideSetup(); }
+  else if (event == Gesture::Tap) { PageControl::command("next"); ++tapCount; }
+  else { PageControl::command("home"); ++holdCount; }
   Serial.printf("[gesture] source=%s event=%s page=%u taps=%lu holds=%lu raw=%u baseline=%u\n",
-      source, event == Gesture::Tap ? "tap" : "hold", page,
+      source, event == Gesture::Tap ? "tap" : "hold", PageControl::position(),
       (unsigned long)tapCount, (unsigned long)holdCount, rawTouch, input.baseline());
   drawPage(millis());
 }
@@ -174,10 +154,10 @@ void serialCommands() {
     if (c == 'd') BuddyNetwork::usbSession();
     if (c == 'o') BuddyNetwork::testOffline();
     if (c == 's') {
-      if (BuddyNetwork::inSetup()) { Serial.println("[screenshot] unavailable during private setup"); continue; }
+      if (BuddyNetwork::showingSetup()) { Serial.println("[screenshot] unavailable during private setup"); continue; }
       // Sixteen RGB565 palette entries, then packed high-nibble-first pixels.
       Serial.printf("\nSCREENSHOT 240 240 INDEX4 28832\n");
-      for (uint16_t color : PALETTE) { Serial.write(color >> 8); Serial.write(color & 255); }
+      for (int i=0;i<16;++i) { uint16_t color=frame.getPaletteColor(i);Serial.write(color >> 8);Serial.write(color & 255); }
       Serial.write((uint8_t*)frame.getPointer(), 240 * 240 / 2);
       Serial.println("\nEND_SCREENSHOT");
     }
@@ -193,11 +173,13 @@ void setup() {
   Serial.printf("[test] gestures=%s failures=%u\n", failures ? "FAIL" : "PASS", failures);
   unsigned setupFailures = setupSelfTest();
   Serial.printf("[test] setup_and_dst=%s failures=%u\n", setupFailures ? "FAIL" : "PASS", setupFailures);
+  unsigned navFailures=PageControl::selfTest();
+  Serial.printf("[test] navigation=%s failures=%u\n",navFailures?"FAIL":"PASS",navFailures);
   unsigned appFailures=AppSettings::selfTest(),weatherFailures=BuddyWeather::selfTest(),signalFailures=SignalMeter::selfTest(),avatarFailures=avatarLogicSelfTest();
   Serial.printf("[test] avatar_weather=%s failures=%u\n",avatarFailures?"FAIL":"PASS",avatarFailures);
   Serial.printf("[test] signal=%s failures=%u\n",signalFailures?"FAIL":"PASS",signalFailures);
   Serial.printf("[test] settings=%s weather=%s failures=%u\n",appFailures?"FAIL":"PASS",weatherFailures?"FAIL":"PASS",appFailures+weatherFailures);
-  startupHealthy=!failures&&!setupFailures&&!appFailures&&!weatherFailures&&!signalFailures&&!avatarFailures;
+  startupHealthy=!failures&&!setupFailures&&!appFailures&&!weatherFailures&&!signalFailures&&!avatarFailures&&!navFailures;
   digitalWrite(LCD_BACKLIGHT, HIGH); pinMode(LCD_BACKLIGHT, OUTPUT);
   digitalWrite(LCD_POWER, LOW); pinMode(LCD_POWER, OUTPUT);
   delay(50);
@@ -224,6 +206,7 @@ void setup() {
   frame.pushSprite(0, 0);
   calibrate();
   BuddyNetwork::begin();
+  PageControl::sync();
   startupHealthy=startupHealthy&&BuddyNetwork::healthy();
   if(!startupHealthy)FirmwareUpdate::failBoot();
   esp_task_wdt_config_t watchdog{.timeout_ms=20000,.idle_core_mask=0,.trigger_panic=true};
@@ -231,10 +214,10 @@ void setup() {
   esp_task_wdt_add(nullptr);
   delay(500);
   drawPage(millis());
-  Serial.printf("[ready] version=%s heap=%u min_heap=%u largest=%u psram=%u framebuffer=28800 pages=4\n",
+  Serial.printf("[ready] version=%s heap=%u min_heap=%u largest=%u psram=%u framebuffer=28800 pages=5\n",
       VERSION, ESP.getFreeHeap(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap(), ESP.getPsramSize());
   Serial.println("[commands] n=next h=home w=dashboard s=screenshot d=private_USB_session o=test_outage");
-  lastSwitch=millis();
+
 }
 
 void loop() {
@@ -250,17 +233,19 @@ void loop() {
   serialCommands();
   BuddyNetwork::tick();
   FirmwareUpdate::tick(startupHealthy&&ESP.getFreeHeap()>45000);
-  if(AppSettings::revision()!=settingsRevision){settingsRevision=AppSettings::revision();page=0;lastSwitch=millis();}
-  if (BuddyNetwork::takeFinished()){page=0;lastSwitch=millis();}
-  now = millis();
-  const auto& cfg=AppSettings::get();
-  if(!BuddyNetwork::inSetup()&&!FirmwareUpdate::busy()&&!input.down()&&cfg.count>1&&cfg.rotationSeconds&&uint32_t(now-lastSwitch)>=uint32_t(cfg.rotationSeconds)*1000){page=(page+1)%cfg.count;lastSwitch=now;}
+  if(AppSettings::revision()!=settingsRevision){
+    settingsRevision=AppSettings::revision();PageControl::sync();
+    uint16_t palette[16];for(int i=0;i<16;++i){uint16_t c=PALETTE[i];palette[i]=AppSettings::get().colorSwap?((c&31)<<11)|(c&0x7E0)|((c>>11)&31):c;}frame.createPalette(palette,16);
+  }
+  BuddyNetwork::takeFinished();
+  now=millis();const auto& cfg=AppSettings::get();
+  PageControl::tick(now,BuddyNetwork::showingSetup()||FirmwareUpdate::busy()||input.down());
   if (uint32_t(now - lastFrame) >= 100) { lastFrame = now; drawPage(now); }
   if (uint32_t(now - lastLog) >= 1000) {
     lastLog = now;
     Serial.printf("[status] ms=%lu page=%u raw=%u baseline=%u down=%u heap=%u min_heap=%u wifi=%u synced=%u setup=%u weather=%u app=%u\n",
-        (unsigned long)now, page, rawTouch, input.baseline(), input.down(),
-        ESP.getFreeHeap(), ESP.getMinFreeHeap(), BuddyNetwork::connected(), BuddyNetwork::clockReady(), BuddyNetwork::inSetup(),BuddyWeather::reading().available,cfg.order[page%cfg.count]);
+        (unsigned long)now, PageControl::position(), rawTouch, input.baseline(), input.down(),
+        ESP.getFreeHeap(), ESP.getMinFreeHeap(), BuddyNetwork::connected(), BuddyNetwork::clockReady(), BuddyNetwork::showingSetup(),BuddyWeather::reading().available,PageControl::app());
   }
   delay(8);
 }

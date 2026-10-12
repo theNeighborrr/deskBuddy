@@ -5,6 +5,7 @@
 #include "Weather.h"
 #include "FirmwareUpdate.h"
 #include "SignalMeter.h"
+#include "PageControl.h"
 #include <WiFi.h>
 #include <WebServer.h>
 #include <DNSServer.h>
@@ -27,6 +28,7 @@ const IPAddress AP_IP(192, 168, 4, 1);
 WebServer server(80);
 DNSServer dns;
 std::atomic<bool> syncEvent{false};
+bool setupVisible=false;
 bool hasSaved=false, portal=false, synced=false, wasConnected=false;
 bool trying=false, pendingStart=false, finished=false, storeReady=false;
 bool scanStarted=false, scanCached=false;
@@ -102,7 +104,7 @@ bool integer(const String& s,int lo,int hi,int& value){
 bool coordinate(const String& s,float& value){char* end;value=strtof(s.c_str(),&end);return !s.isEmpty()&&end==s.c_str()+s.length()&&isfinite(value);}
 String configJson(){
  const auto& c=AppSettings::get();String order="[";for(int i=0;i<c.count;++i){if(i)order+=',';order+=c.order[i];}order+=']';
- return String("{\"name\":")+quote(c.name)+",\"avatar\":"+c.avatar+",\"order\":"+order+",\"rotation\":"+c.rotationSeconds+
+ return String("{\"name\":")+quote(c.name)+",\"avatar\":"+c.avatar+",\"avatarMode\":"+c.avatarMode+",\"colorSwap\":"+c.colorSwap+",\"order\":"+order+",\"rotation\":"+c.rotationSeconds+
  ",\"zone\":"+quote(CLOCK_ZONES[c.zone].id)+",\"h24\":"+c.h24+",\"fahrenheit\":"+c.fahrenheit+
  ",\"hasLocation\":"+c.hasLocation+",\"city\":"+quote(c.city)+",\"latitude\":"+String(c.latitude,5)+",\"longitude\":"+String(c.longitude,5)+
  ",\"version\":"+quote(FIRMWARE_VERSION)+",\"configured\":"+(hasSaved?"true":"false")+",\"canRollback\":"+(FirmwareUpdate::canRollback()?"true":"false")+"}";
@@ -115,16 +117,18 @@ void routes() {
     if(uint32_t(millis()-authWindow)>=60000){authWindow=millis();authFailures=0;}
     if(authFailures>=5){json(429,"{\"message\":\"Too many attempts. Wait one minute and try again.\"}");return;}
     if(server.client().localIP()!=AP_IP&&server.arg("pin")!=pin){++authFailures;json(401,"{\"message\":\"Enter the six-digit code on your buddy.\"}");return;}
-    lastAction=millis();json(200,String("{\"token\":")+quote(token)+"}");
+    lastAction=millis();if(hasSaved&&connected())setupVisible=false;json(200,String("{\"token\":")+quote(token)+"}");
   });
   server.on("/api/config",HTTP_GET,[]{if(authorized())json(200,configJson());});
   server.on("/api/settings",HTTP_POST,[]{
-    if(!authorized())return;AppConfig next=AppSettings::get();int rotation,h24,units,location,avatar=next.avatar;
+    if(!authorized())return;AppConfig next=AppSettings::get();int rotation,h24,units,location,avatar=next.avatar,avatarMode=next.avatarMode,colorSwap=next.colorSwap;
     String name=server.arg("name"),city=server.arg("city"),order=server.arg("order");int zone=zoneIndex(server.arg("zone"));
     bool ok=name.length()>0&&name.length()<sizeof(next.name)&&city.length()<sizeof(next.city)&&zone>=0&&
       integer(server.arg("rotation"),0,300,rotation)&&integer(server.arg("h24"),0,1,h24)&&integer(server.arg("fahrenheit"),0,1,units)&&integer(server.arg("hasLocation"),0,1,location)&&coordinate(server.arg("latitude"),next.latitude)&&coordinate(server.arg("longitude"),next.longitude);
     if(server.hasArg("avatar")&&!integer(server.arg("avatar"),0,AVATAR_COUNT-1,avatar))ok=false;
-    next.avatar=avatar;next.count=0;
+    if(server.hasArg("avatarMode")&&!integer(server.arg("avatarMode"),0,1,avatarMode))ok=false;
+    if(server.hasArg("colorSwap")&&!integer(server.arg("colorSwap"),0,1,colorSwap))ok=false;
+    next.avatar=avatar;next.avatarMode=avatarMode;next.colorSwap=colorSwap;next.count=0;
     if(order.isEmpty()||order.endsWith(","))ok=false;
     for(int start=0;start<(int)order.length();){int end=order.indexOf(',',start);if(end<0)end=order.length();int id;
       if(next.count>=APP_COUNT||!integer(order.substring(start,end),0,APP_COUNT-1,id)){ok=false;break;}next.order[next.count++]=id;start=end+1;}
@@ -133,6 +137,15 @@ void routes() {
     if(!AppSettings::valid(next)){json(400,"{\"message\":\"Use basic letters for names, choose at least one unique page, and set rotation to 0 or 5–300 seconds.\"}");return;}
     if(!AppSettings::save(next)){json(500,"{\"message\":\"Settings could not be saved. Try again.\"}");return;}
     setenv("TZ",CLOCK_ZONES[next.zone].rule,1);tzset();BuddyWeather::refresh();Serial.println("[settings] saved");json(200,"{\"message\":\"Saved\"}");
+  });
+  server.on("/api/keepalive",HTTP_POST,[]{if(authorized())json(200,"{\"ok\":true}");});
+  server.on("/api/control",HTTP_POST,[]{
+    if(!authorized())return;
+    if(FirmwareUpdate::busy()||trying||pendingStart){json(409,"{\"message\":\"Wait for the current operation to finish.\"}");return;}
+    int app=-1;String action=server.arg("action");
+    if(action=="page"&&!integer(server.arg("app"),0,APP_COUNT-1,app)){json(400,"{\"message\":\"Choose a valid page.\"}");return;}
+    if(!PageControl::command(action,app)){json(400,"{\"message\":\"Choose an enabled page or a valid control.\"}");return;}
+    setupVisible=false;json(200,"{\"ok\":true}");
   });
   server.on("/api/search",HTTP_POST,[]{
     if(!authorized())return;
@@ -157,10 +170,10 @@ void routes() {
     if(!authorized())return;
     const char* value=state==State::Connecting?"connecting":state==State::Saved?"saved":state==State::Error?"error":"ready";
     auto weather=BuddyWeather::reading();
-    auto signal=SignalMeter::reading();
+    auto signal=SignalMeter::reading();PageControl::sync();
     json(200,String("{\"state\":")+quote(value)+",\"message\":"+quote(errorText)+",\"online\":"+(connected()?"true":"false")+
       ",\"synced\":"+(synced?"true":"false")+",\"heap\":"+ESP.getFreeHeap()+",\"uptime\":"+millis()+
-      ",\"weatherAvailable\":"+(weather.available?"true":"false")+",\"weatherFetchedAt\":"+String((long long)weather.fetchedAt)+",\"temperatureC\":"+String(weather.temperature,1)+
+      ",\"app\":"+PageControl::app()+",\"avatar\":"+PageControl::avatar()+",\"paused\":"+(PageControl::paused()?"true":"false")+",\"forecastDays\":"+weather.days+",\"setupVisible\":"+(setupVisible?"true":"false")+",\"weatherAvailable\":"+(weather.available?"true":"false")+",\"weatherFetchedAt\":"+String((long long)weather.fetchedAt)+",\"temperatureC\":"+String(weather.temperature,1)+
       ",\"signal\":{\"available\":"+(signal.available?"true":"false")+",\"rssi\":"+(signal.available?String(signal.rssi):String("null"))+",\"bars\":"+signal.bars+",\"quality\":"+quote(SignalMeter::quality(signal))+"}}");
   });
   server.on("/api/networks",HTTP_GET,[]{
@@ -218,7 +231,7 @@ void begin() {
   else openSetup();
 }
 void openSetup() {
-  if(portal)return;
+  if(portal){setupVisible=true;lastAction=millis();return;}
   WiFi.mode(WIFI_AP_STA);
   uint64_t mac=ESP.getEfuseMac();
   snprintf(apName,sizeof(apName),"DeskBuddy-%04X",unsigned((mac>>32)&0xffff));
@@ -232,7 +245,7 @@ void openSetup() {
   if(!WiFi.softAPConfig(AP_IP,AP_IP,IPAddress(255,255,255,0))||!WiFi.softAP(apName,apPassword)){
     Serial.println("[setup] access point failed");WiFi.mode(WIFI_STA);return;
   }
-  portal=true;state=State::Ready;errorText="";closeAt=0;scanCached=false;networkList="[]";
+  portal=true;setupVisible=true;state=State::Ready;errorText="";closeAt=0;scanCached=false;networkList="[]";
   dns.start(53,"*",AP_IP);server.begin();
   Serial.println("[setup] open; credentials displayed on device only");
 }
@@ -242,7 +255,7 @@ void closeSetup() {
   trying=pendingStart=false;candidate={};
   if(scanStarted){WiFi.scanDelete();scanStarted=false;}
   server.stop();dns.stop();WiFi.softAPdisconnect(true);WiFi.mode(WIFI_STA);
-  portal=false;token="";memset(apPassword,0,sizeof(apPassword));closeAt=0;
+  portal=false;setupVisible=false;token="";memset(apPassword,0,sizeof(apPassword));closeAt=0;
   if(cancel){WiFi.disconnect(false,false);wasConnected=false;startSaved();}
   Serial.println("[setup] closed");
 }
@@ -302,6 +315,8 @@ void tick() {
   BuddyWeather::tick(online,synced,FirmwareUpdate::busy());
 }
 bool inSetup(){return portal;}
+bool showingSetup(){return portal&&setupVisible;}
+void hideSetup(){setupVisible=false;}
 bool connected(){return WiFi.status()==WL_CONNECTED;}
 bool configured(){return hasSaved;}
 bool clockReady(){return synced;}

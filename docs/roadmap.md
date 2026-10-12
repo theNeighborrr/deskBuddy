@@ -1,8 +1,8 @@
 # Roadmap and decisions
 
-## Working now — 0.5.0
+## Working now — 0.6.0
 
-Companion with seven animated characters, clock, city weather, Wi-Fi signal, phone settings, and signed wireless updates with recovery. Weather Cloud reacts to conditions within the single Companion page.
+Companion with seven animated characters, clock, city weather, Wi-Fi signal, phone settings, seven-day visual forecast, per-visit avatar rotation, an active-display phone remote, and signed wireless updates with recovery. Weather Cloud reacts to conditions within the single Companion page.
 
 ## Next decisions
 

@@ -35,12 +35,29 @@ bool get(const String& url,String& response){
 String encode(const char* raw){String result;while(*raw){uint8_t c=*raw++;if(isalnum(c)||c=='-'||c=='_'||c=='.')result+=(char)c;else{char s[4];snprintf(s,sizeof(s),"%%%02X",c);result+=s;}}return result;}
 bool number(cJSON* object,const char* key,double& value){auto n=cJSON_GetObjectItemCaseSensitive(object,key);if(!cJSON_IsNumber(n)||!isfinite(n->valuedouble))return false;value=n->valuedouble;return true;}
 bool firstNumber(cJSON* object,const char* key,double& value){auto n=cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(object,key),0);if(!cJSON_IsNumber(n)||!isfinite(n->valuedouble))return false;value=n->valuedouble;return true;}
+bool arrayNumber(cJSON* object,const char* key,int i,double& value){auto n=cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(object,key),i);if(!cJSON_IsNumber(n)||!isfinite(n->valuedouble))return false;value=n->valuedouble;return true;}
+bool parseForecast(cJSON* doc,cJSON* daily,WeatherReading& out){
+ double offset;if(!number(doc,"utc_offset_seconds",offset)||offset< -50400||offset>50400||floor(offset)!=offset)return false;
+ ForecastDay days[7]{};
+ for(int i=0;i<7;++i){double date,high,low,code,rain=-1;
+  if(!arrayNumber(daily,"time",i,date)||!arrayNumber(daily,"temperature_2m_max",i,high)||!arrayNumber(daily,"temperature_2m_min",i,low)||!arrayNumber(daily,"weather_code",i,code))return false;
+  if(date<1577836800||date>4102444800||floor(date)!=date||high<low||low< -100||high>70||code<0||code>99||floor(code)!=code)return false;
+  if(i&&date-days[i-1].date!=86400)return false;
+  auto precipitation=cJSON_GetArrayItem(cJSON_GetObjectItemCaseSensitive(daily,"precipitation_probability_max"),i);
+  if(precipitation&&!cJSON_IsNull(precipitation)){
+   if(!cJSON_IsNumber(precipitation)||!isfinite(precipitation->valuedouble))return false;
+   rain=precipitation->valuedouble;if(rain<0||rain>100)return false;
+  }
+  days[i]={(int64_t)date,(float)high,(float)low,(int16_t)code,(int16_t)(rain<0?-1:lround(rain))};
+ }
+ out.utcOffset=(int32_t)offset;out.days=7;memcpy(out.forecast,days,sizeof(days));return true;
+}
 bool parseWeather(const String& body,const Job& job,WeatherReading& out){
  auto doc=cJSON_Parse(body.c_str());if(!doc)return false;auto current=cJSON_GetObjectItemCaseSensitive(doc,"current");auto daily=cJSON_GetObjectItemCaseSensitive(doc,"daily");
  double temp,feels,code,day,wind,stamp,high,low;
  bool ok=number(current,"temperature_2m",temp)&&number(current,"apparent_temperature",feels)&&number(current,"weather_code",code)&&number(current,"is_day",day)&&number(current,"wind_speed_10m",wind)&&number(current,"time",stamp)&&firstNumber(daily,"temperature_2m_max",high)&&firstNumber(daily,"temperature_2m_min",low);
  ok=ok&&temp>=-100&&temp<=70&&feels>=-130&&feels<=100&&code>=0&&code<=99&&floor(code)==code&&(day==0||day==1)&&wind>=0&&wind<=500&&stamp>=1577836800&&stamp<=4102444800&&high>=low&&low>=-100&&high<=70;
- if(ok){out={};out.available=true;out.temperature=temp;out.feelsLike=feels;out.code=code;out.day=day;out.wind=wind;out.observedAt=stamp;out.fetchedAt=time(nullptr);out.high=high;out.low=low;out.latitude=job.lat;out.longitude=job.lon;}
+ if(ok){out={};out.available=true;out.temperature=temp;out.feelsLike=feels;out.code=code;out.day=day;out.wind=wind;out.observedAt=stamp;out.fetchedAt=time(nullptr);out.high=high;out.low=low;out.latitude=job.lat;out.longitude=job.lon;parseForecast(doc,daily,out);}
  cJSON_Delete(doc);return ok;
 }
 void publishGeo(const char* json){portENTER_CRITICAL(&lock);strlcpy(geoResult,json,sizeof(geoResult));portEXIT_CRITICAL(&lock);}
@@ -64,7 +81,7 @@ void run(void*){
  for(;;){if(xQueueReceive(jobs,&job,portMAX_DELAY)!=pdTRUE)continue;
   if(job.geocode)geocode(job);
   else{
-   char url[384];snprintf(url,sizeof(url),"https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto&timeformat=unixtime",job.lat,job.lon);
+   char url[512];snprintf(url,sizeof(url),"https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current=temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&forecast_days=7&timezone=auto&timeformat=unixtime",job.lat,job.lon);
    String body;WeatherReading next{};bool ok=get(url,body)&&parseWeather(body,job,next);
    if(ok){portENTER_CRITICAL(&lock);latest=next;portEXIT_CRITICAL(&lock);fresh.store(true);Serial.println("[weather] current conditions refreshed");}
    fetchResult.store(ok?1:-1);
@@ -75,16 +92,16 @@ void run(void*){
 }
 bool begin(){
  cache.begin("deskbuddy",false);Cached cached{};
- if(cache.getBytesLength("weather")==sizeof(cached)){cache.getBytes("weather",&cached,sizeof(cached));if(cached.magic==0x57454103&&cached.value.available&&isfinite(cached.value.temperature)&&cached.value.fetchedAt>=1577836800)latest=cached.value;}
+ if(cache.getBytesLength("weather6")==sizeof(cached)){cache.getBytes("weather6",&cached,sizeof(cached));if(cached.magic==0x57454106&&cached.value.available&&isfinite(cached.value.temperature)&&cached.value.fetchedAt>=1577836800)latest=cached.value;}
  jobs=xQueueCreate(1,sizeof(Job));if(!jobs)return false;
- return xTaskCreatePinnedToCore(run,"weather",12288,nullptr,1,&worker,0)==pdPASS;
+ return xTaskCreatePinnedToCore(run,"weather6",12288,nullptr,1,&worker,0)==pdPASS;
 }
 void tick(bool online,bool synchronized,bool updateBusy){
  uint32_t now=millis();const auto& cfg=AppSettings::get();
  if(seenRevision!=AppSettings::revision()){seenRevision=AppSettings::revision();due=0;}
  int result=fetchResult.exchange(0);
  if(result)due=(fabsf(cfg.latitude-requestedLatitude)>.001f||fabsf(cfg.longitude-requestedLongitude)>.001f)?0:now+(result>0?900000:120000);
- if(fresh.exchange(false)){WeatherReading value=reading();if(value.available){Cached entry{0x57454103,value};cache.putBytes("weather",&entry,sizeof(entry));}}
+ if(fresh.exchange(false)){WeatherReading value=reading();if(value.available){Cached entry{0x57454106,value};cache.putBytes("weather6",&entry,sizeof(entry));}}
  if(!online||!synchronized||updateBusy||!cfg.hasLocation||!jobs||working.load()||(due&&int32_t(now-due)<0))return;
  if(lastAttempt&&uint32_t(now-lastAttempt)<60000)return;
  Job job{};job.lat=cfg.latitude;job.lon=cfg.longitude;requestedLatitude=job.lat;requestedLongitude=job.lon;
@@ -112,6 +129,18 @@ unsigned selfTest(){
  if(parseWeather("{}",job,result))++failures;
  String broken(good);broken.replace("\"temperature_2m\":20","\"temperature_2m\":null");if(parseWeather(broken,job,result))++failures;
  broken=good;broken.replace("\"weather_code\":2","\"weather_code\":999");if(parseWeather(broken,job,result))++failures;
+ auto doc=cJSON_Parse(good);auto daily=cJSON_GetObjectItemCaseSensitive(doc,"daily");
+ cJSON_AddNumberToObject(doc,"utc_offset_seconds",50400);
+ for(const char* key:{"time","temperature_2m_max","temperature_2m_min","weather_code","precipitation_probability_max"}){
+  cJSON_DeleteItemFromObject(daily,key);auto values=cJSON_AddArrayToObject(daily,key);
+  for(int i=0;i<7;++i)cJSON_AddItemToArray(values,cJSON_CreateNumber(!strcmp(key,"time")?1791691200+i*86400:!strcmp(key,"temperature_2m_max")?25:!strcmp(key,"temperature_2m_min")?12:!strcmp(key,"weather_code")?2:30));
+ }
+ if(!parseForecast(doc,daily,result)||result.days!=7||result.forecast[6].rain!=30||result.utcOffset!=50400)++failures;
+ auto rain=cJSON_GetObjectItemCaseSensitive(daily,"precipitation_probability_max");cJSON_ReplaceItemInArray(rain,0,cJSON_CreateNull());
+ if(!parseForecast(doc,daily,result)||result.forecast[0].rain!=-1)++failures;
+ cJSON_ReplaceItemInArray(rain,0,cJSON_CreateNumber(101));if(parseForecast(doc,daily,result))++failures;
+ cJSON_ReplaceItemInArray(rain,0,cJSON_CreateNumber(0));cJSON_DeleteItemFromArray(cJSON_GetObjectItemCaseSensitive(daily,"weather_code"),6);if(parseForecast(doc,daily,result))++failures;
+ cJSON_Delete(doc);
  return failures;
 }
 }
