@@ -1,0 +1,140 @@
+DESKBUDDY 0.5.0 — THE CHARACTER COLLECTION
+Working product name. Target: NM-TV-154, classic ESP32, 4 MB flash.
+See verification.json for completed checks and remaining limitations.
+
+EVERYDAY USE
+Leave the top untouched for two seconds at startup while touch calibrates.
+Tap: next selected page. Hold one second: first page. Hold five seconds:
+phone dashboard. Tap while the dashboard is open to close it.
+
+PHONE DASHBOARD
+When connected to home Wi-Fi, hold the top for five seconds. Connect your
+phone to the same home network, open the address shown on the display, and
+enter its six-digit screen code. The address may change with your router.
+Alternatively, join the temporary DeskBuddy Wi-Fi using the name and password
+on the screen, then open http://192.168.4.1. Stay connected if your phone says
+there is no internet. This fallback opens directly. First boot without saved
+Wi-Fi automatically opens setup.
+
+Rename the companion (18 basic characters), choose and arrange four pages, set
+automatic page switching, change timezone and 12/24-hour format, choose a
+weather city and Fahrenheit/Celsius, then tap Save my settings.
+In Make it yours, expand Companion avatar to choose Weather Cloud, Paperclip,
+Hacker Dolphin, Money Sun, Mr. Meeseeks, Pokemon Parade or Joe Camel. The
+preview matches the device artwork. Save to apply. The device animates each
+character; the phone shows a static preview. Pokemon Parade is a street scene
+with Pikachu, Bulbasaur, Charmander and Squirtle walking together.
+
+Weather Cloud follows the selected city: cloudy, sunny, rain, storms, snow, fog
+and nighttime. It starts neutral while waiting for weather. Cached conditions
+remain visible with a saved/offline label. Rain/storm/snow/fog take precedence
+over the night appearance. This uses the existing weather refresh schedule.
+There is one Companion page regardless of which avatar you choose.
+These preferences do not require re-entering your Wi-Fi password.
+Change networks in the Wi-Fi section. Credentials are tested before replacing
+the saved connection; failure preserves it. Tap Done when finished. The
+dashboard closes after ten minutes without activity. Status polling alone
+does not keep it open.
+
+WI-FI SIGNAL
+The Signal page shows current received signal strength in dBm, four bars,
+a quality label, and about 45 seconds of history. A small bar indicator also
+appears on every regular page; the phone dashboard has a live readout.
+Readings refresh once a second on the device and every five seconds on the
+phone. Disconnected readings clear; gaps in the history mean no reading.
+This measures the connection to your router, not internet download speed.
+Display thresholds: Excellent >= -55 dBm; Good >= -67; Fair >= -75;
+Weak below -75. These labels are approximate, not a connectivity guarantee.
+
+CLOCK AND WEATHER
+Timezones: US Central, Eastern, Mountain, Pacific, Arizona, Hawaii and UTC.
+The first four adjust for daylight saving. Internet time comes from
+pool.ntp.org and time.nist.gov. Once synchronized, the clock keeps running
+during Wi-Fi outages. Restart/power loss requires fresh synchronization;
+there is no battery-backed real-time clock. Saved Wi-Fi reconnects automatically.
+Use 2.4 GHz Wi-Fi. Enterprise networks/browser sign-in are unsupported.
+
+Weather data by Open-Meteo: https://open-meteo.com/ (CC BY 4.0 attribution).
+City searches and selected coordinates are sent over verified HTTPS.
+Conditions refresh about every fifteen minutes online. Cached conditions
+are marked when offline or older. This display is not an emergency alert service.
+The owner's unit uses Memphis, Tennessee. Public firmware contains no saved
+city or Wi-Fi credentials; recipients choose their own.
+
+WIRELESS UPDATES
+In the dashboard, expand Wireless updates, choose a supplied .buddy file,
+and tap Install update and restart. Keep the device plugged in.
+The device checks the target, signed release header, image hash and image
+format before booting it. Uploads write to the spare application slot.
+Interrupted/rejected uploads keep the running firmware. A new version must
+pass startup checks before confirmation; a reboot before confirmation lets
+the bootloader return to the previous valid image. Restore previous firmware
+selects the available spare image and restarts. There is no automatic update
+server. Version 0.5.0 installs wirelessly over 0.3.0 or 0.4.0 using the same layout.
+On first upgrade from 0.4.0, existing settings carry over and Weather Cloud
+is selected. Pages and their order are preserved. Upgrading directly from
+0.3.0 additionally appends Signal to the selected pages.
+Versions 0.3.0, 0.4.0 and 0.5.0 use separate preference records so restoring
+a previous version restores its preferences. Wi-Fi remains shared.
+Version 0.2.0 requires a one-time USB partition migration first.
+
+PRIVACY AND ACCESS
+No cloud account or companion server. On home Wi-Fi, a temporary screen code
+unlocks a random session token. Setup Wi-Fi gets a fresh random password.
+Requests check the local address and Host; settings require a session token.
+Five failed code attempts per minute are allowed. Closing the dashboard stops
+its server. Local dashboard traffic uses HTTP. Stored Wi-Fi credentials are
+not encrypted on this prototype; use a trusted network and physical access.
+USB diagnostic d deliberately provides a temporary session for development.
+Normal logs omit passwords; screenshots are blocked during private setup.
+Public firmware is built from source, never from configured flash.
+
+BUILD
+Arduino CLI 1.5.1; Arduino-ESP32 3.3.11; TFT_eSPI 2.5.43; esptool 5.4.0.
+Board index: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+Run build.ps1. It supplies DisplayConfig.h to C++ units, uses min_spiffs,
+and defaults to TWO jobs. -ConfigFile selects CLI settings; -BuildPath sets
+intermediate output. An unconfigured Arduino IDE lacks these display flags.
+ReleasePublicKey.h embeds the release public key. The matching private key
+is retained outside this public package and is needed to sign later releases.
+Changing the key requires installing firmware that trusts the replacement.
+
+USB INSTALLATION / RECOVERY
+Confirm the board and COM port each time; Windows may change the port number.
+For FIRST installation on matching hardware, flash the merged image at 0x0.
+This replaces firmware AND settings. Do not use it to preserve configured Wi-Fi.
+Partition layout (min_spiffs):
+  NVS 0x9000 size 0x5000; OTA metadata 0xe000 size 0x2000;
+  app0 0x10000 size 0x1e0000; app1 0x1f0000 size 0x1e0000.
+Migration from 0.2.0 needs the new table at 0x8000 and valid app0 at 0x10000,
+app0 selected in OTA metadata, and NVS preserved. The old second-slot offset
+and slot sizes differ. After OTA use, do not blindly flash app0: determine
+the running/selected slot first, or deliberately select a recovery slot.
+No eFuse changes are needed. Prefer signed wireless updates after migration.
+The earlier 0.2.0 ZIP remains a complete recovery release.
+
+HARDWARE / DIAGNOSTICS
+ST7789 240x240; HSPI SCLK14, MOSI13, CS15, DC2, no wired reset.
+LCD power21 LOW; backlight19 LOW; touch32/T9. CPU240 MHz, DIO40 MHz,
+rotation0, RGB order, inversion enabled. 28,800-byte indexed framebuffer;
+no external PSRAM. Serial115200: n=next, h=home/close, w=dashboard,
+c=recalibrate, r=temporary rotation, i=temporary inversion,
+d=private USB session (do not share its token), o=20-second Wi-Fi outage test.
+s=framebuffer outside setup: 16 big-endian RGB565 entries, then 28,800
+high-nibble-first packed 4-bit pixels. Logs distinguish touch from USB input.
+
+FUTURE WORK / LIMITS
+Countdown is deferred. Naming remains open. Weather Cloud is included.
+Artwork source: art/build_avatars.py regenerates sprites and matching phone
+previews. Character animation uses two frames; it is not full video playback.
+There is no installable community app system yet. Short bench tests do not
+establish long-term reliability. See Future-ideas.txt and verification.json.
+No project-wide license has been chosen. Upstream licenses apply;
+TFT_eSPI's license is included.
+
+REFERENCES
+https://github.com/RockBase-iot/NM-TV-154
+https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/system/ota.html
+https://open-meteo.com/en/docs
+https://open-meteo.com/en/docs/geocoding-api
+https://github.com/Bodmer/TFT_eSPI

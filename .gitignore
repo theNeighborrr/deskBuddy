@@ -1,0 +1,24 @@
+# Local credentials and release signing material
+*.pem
+*.key
+*.p12
+*.pfx
+.env
+.env.*
+!.env.example
+secrets/
+release-keys/
+work/
+# Generated build output (distribute separately)
+firmware/
+build/
+DeskBuddy/build/
+*.bin
+*.buddy
+*.elf
+*.map
+*.zip
+*.log
+__pycache__/
+*.pyc
+.DS_Store
