@@ -12,7 +12,8 @@
 #define TFT_MISO -1
 #define USE_HSPI_PORT
 #define CGRAM_OFFSET
-#define TFT_RGB_ORDER TFT_RGB
+// This panel expects BGR: RGB made yellow/orange artwork appear cyan/blue.
+#define TFT_RGB_ORDER TFT_BGR
 #define SPI_FREQUENCY 40000000
 #define SPI_READ_FREQUENCY 20000000
 #define LOAD_GLCD
