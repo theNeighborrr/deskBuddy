@@ -1,6 +1,6 @@
 # 0.6.0 validation
 
-Installed on the NM-TV-154 prototype using a signed wireless update from 0.5.0. The previous 0.5.0 image remains available for recovery. Physical color confirmation is pending.
+Installed on the NM-TV-154 prototype using a signed wireless update from 0.5.0. The previous 0.5.0 image remains available for recovery. The owner confirmed on the physical screen that Pikachu is yellow, Charmander orange, and Squirtle blue.
 
 ## Changes
 
