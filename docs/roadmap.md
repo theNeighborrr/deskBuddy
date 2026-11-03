@@ -1,14 +1,14 @@
 # Roadmap and decisions
 
-## Working now — 0.6.0
+## Working now — 0.7.0
 
-Companion with seven animated characters, clock, city weather, Wi-Fi signal, phone settings, seven-day visual forecast, per-visit avatar rotation, an active-display phone remote, and signed wireless updates with recovery. Weather Cloud reacts to conditions within the single Companion page.
+Neon Arcade with animated artwork and a saved-settings Bandicuss preset; Companion with seven animated characters, clock, city weather, Wi-Fi signal, phone settings, seven-day visual forecast, per-visit avatar rotation, an active-display phone remote, and signed wireless updates with recovery. Weather Cloud reacts to conditions within the single Companion page.
 
 ## Next decisions
 
 - Review the new characters on the actual display and refine their appearance.
 - Choose a product name; DeskBuddy remains provisional.
-- Make first-time setup and recipient instructions ready for a small gift batch.
+- Use the Bandicuss gift workflow and setup card for the first recipient; collect setup feedback.
 - Extend testing from short bench runs to everyday use.
 
 ## Deferred

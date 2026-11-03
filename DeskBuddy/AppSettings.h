@@ -1,9 +1,9 @@
 #pragma once
 #include <Arduino.h>
 #include "SetupRules.h"
-constexpr char FIRMWARE_VERSION[]="0.6.0";
-constexpr uint8_t APP_COUNT=5,AVATAR_COUNT=7;
-enum AppId : uint8_t { PAL=0, CLOCK=1, WEATHER=2, WIFI_SIGNAL=3, WEEKLY=4 };
+constexpr char FIRMWARE_VERSION[]="0.7.0";
+constexpr uint8_t APP_COUNT=6,AVATAR_COUNT=7;
+enum AppId : uint8_t { PAL=0, CLOCK=1, WEATHER=2, WIFI_SIGNAL=3, WEEKLY=4, NEON_ARCADE=5 };
 struct AppConfig {
   uint32_t magic;
   char name[19],city[33];

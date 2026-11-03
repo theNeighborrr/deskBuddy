@@ -1,13 +1,13 @@
 # DeskBuddy field guide
 
-For firmware **0.6.0** on the NM-TV-154. DeskBuddy is the working product name; you can give your unit its own name.
+For firmware **0.7.0** on the NM-TV-154. DeskBuddy is the working product name; you can give your unit its own name.
 
 ## Start here
 
 1. Plug in USB power. Leave the top untouched for two seconds while touch calibrates.
 2. A new unit opens setup. On your phone, join the temporary Wi-Fi using the name and password shown on the device.
 3. Stay connected if the phone reports “no internet.” Open `http://192.168.4.1`.
-4. Enter your home **2.4 GHz** Wi-Fi details and tap **Connect my buddy**.
+4. Enter your home **2.4 GHz** Wi-Fi details and tap **Connect display**.
 5. Wait for internet time to synchronize. Choose your weather city and save your settings.
 
 The public firmware contains no saved home network or weather city. Enterprise Wi-Fi and networks requiring browser sign-in are unsupported.
@@ -32,6 +32,14 @@ Change networks in the Wi-Fi section. The new connection is tested before replac
 ## Remote control
 
 Use **Previous**, **Home**, and **Next**, or **Jump to a page** to choose any enabled page. **Pause page rotation** holds the current page; **Resume** starts a fresh rotation interval. These controls apply immediately and do not change your saved page order. Touch controls keep working. Pause resets on device restart.
+
+## Neon Arcade and the Bandicuss preset
+
+**Neon Arcade** fills the screen with an animated Japanese-inspired arcade street, neon signs, rain, and reflections. Your display name appears on the main storefront sign. It is pure artwork: clock and weather remain on their own pages. It works without Wi-Fi. Tap to change pages; hold about one second to return to the first enabled page.
+
+In **Make it yours**, tap **Load Bandicuss preset**. This fills the form with the name Bandicuss, turns automatic page switching off, and enables this order: **Neon Arcade → Companion → Clock → Weather → Wi-Fi Signal → This Week**. It takes effect only when you tap **Save my settings**. The selected character, avatar mode, color profile, Wi-Fi, city, timezone, and units stay unchanged. You can customize the preset before saving.
+
+The preset is ordinary saved settings, not a separate firmware. Companion stays available and enabled by the preset. A clean gift unit has Weather Cloud selected, no saved network or weather city, and starts in setup. Tap once to enjoy the artwork offline; hold five seconds to return to setup. Configure timezone, city, and units for the recipient.
 
 ## Characters
 
@@ -79,7 +87,7 @@ Less-negative values indicate a stronger received signal. The labels do not guar
 
 Uploads write to the spare firmware slot. Rejected or interrupted uploads retain the running version. A new build must pass startup checks before confirmation. **Restore previous firmware** selects the available previous image and restarts.
 
-Versions 0.3.0, 0.4.0, and 0.5.0 can update to 0.6.0 wirelessly. Version 0.2.0 needs a USB partition migration first. Each version keeps its own application preferences; Wi-Fi is shared. The first upgrade to 0.6.0 preserves your preferences and adds This Week after your existing enabled pages. Upgrading from 0.5.0 preserves the chosen avatar and starts in fixed-avatar mode. Earlier versions keep their own preference records for recovery.
+Versions 0.3.0 through 0.6.0 can update to 0.7.0 wirelessly. The 0.7.0 upgrade preserves existing page selections and leaves Neon Arcade disabled until selected or the Bandicuss preset is saved. Version 0.2.0 needs a USB partition migration first. Each version keeps its own application preferences; Wi-Fi is shared. The first upgrade to 0.6.0 preserves your preferences and adds This Week after your existing enabled pages. Upgrading from 0.5.0 preserves the chosen avatar and starts in fixed-avatar mode. Earlier versions keep their own preference records for recovery.
 
 There is no automatic update server. A full merged USB image replaces firmware **and settings**; ask the maintainer to inspect the active slot before USB recovery.
 
@@ -100,4 +108,4 @@ There is no automatic update server. A full merged USB image replaces firmware *
 
 No cloud account or companion server is needed. The temporary screen code opens a local dashboard session. Dashboard traffic uses HTTP and stored Wi-Fi credentials are not encrypted on this prototype. Use it on a trusted network. Keep screen codes, session tokens, and signing keys out of shared notes.
 
-This version has five built-in pages. It does not yet support downloadable community apps, voice, cameras, or an AI chat service. Countdown is deferred and naming remains open. See the [roadmap](roadmap.md).
+This version has six built-in pages. It does not yet support downloadable community apps, voice, cameras, or an AI chat service. Countdown is deferred and naming remains open. See the [roadmap](roadmap.md).

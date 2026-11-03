@@ -10,6 +10,7 @@
 #include "Weather.h"
 #include "FirmwareUpdate.h"
 #include "Visuals.h"
+#include "NeonArcade.h"
 #include "AvatarLogic.h"
 #include "PageControl.h"
 using namespace Visuals;
@@ -54,7 +55,7 @@ void drawPage(uint32_t now) {
     centered(FirmwareUpdate::message(),100,1,INK,BG);
     frame.drawRoundRect(20,145,200,18,7,MUTED);
     frame.fillRoundRect(22,147,FirmwareUpdate::percent()*196/100,14,5,MINT);
-    centered("Keep your buddy plugged in",190,1,MUTED,BG);
+    centered("Keep the display plugged in",190,1,MUTED,BG);
     frame.pushSprite(0,0);return;
   }
   if (BuddyNetwork::showingSetup()) {
@@ -68,7 +69,7 @@ void drawPage(uint32_t now) {
       centered(BuddyNetwork::setupName(),159,1,INK,BG);
       String pass="Password: "+String(BuddyNetwork::setupPassword());centered(pass.c_str(),174,1,MINT,BG);
       centered("Then open http://192.168.4.1",192,1,MUTED,BG);
-      centered("Tap top: back to companion",219,1,MUTED,BG);
+      centered("Tap top: back to display",219,1,MUTED,BG);
       frame.pushSprite(0,0);return;
     }
     centered("Wi-Fi setup", 10, 4, MINT, BG);
@@ -85,8 +86,9 @@ void drawPage(uint32_t now) {
   }
   const auto& cfg=AppSettings::get();
   uint8_t page=PageControl::position(),app=PageControl::app();
-  shell(frame,cfg.name,app,page,cfg.count);
-  if(app==PAL){
+  if(app!=NEON_ARCADE)shell(frame,cfg.name,app,page,cfg.count);
+  if(app==NEON_ARCADE){NeonArcade::draw(frame,cfg.name,now);}
+  else if(app==PAL){
     avatar(frame,PageControl::avatar(),now);
     String caption=String("> ")+avatarCaption(PageControl::avatar());centered(caption.c_str(),205,1,CYAN,BG);
   }else if(app==CLOCK){
@@ -109,7 +111,7 @@ void drawPage(uint32_t now) {
     weatherPage(frame,now);
   }else if(app==WIFI_SIGNAL){signalPage(frame);}
   else if(app==WEEKLY){weeklyPage(frame,now);}
-  footer(frame);
+  if(app!=NEON_ARCADE)footer(frame);
   if (input.down()) {
     uint32_t elapsed = now - input.pressedAt();
     uint16_t width = (uint16_t)(min(elapsed, uint32_t(5000)) * 212 / 5000);
@@ -199,9 +201,9 @@ void setup() {
   frame.createPalette(PALETTE, 16);
   frame.fillSprite(BG);
   frame.fillRect(0,0,240,3,CYAN);
-  centered("> BOOTING COMPANION_",35,1,CYAN,BG);
-  centered("Hello, human.", 80, 4, INK, BG);
-  centered("Small screen. Bright company.",135,1,VIOLET,BG);
+  centered("> STARTING DISPLAY_",35,1,CYAN,BG);
+  centered("Hello.", 80, 4, INK, BG);
+  centered("Small screen. Your world.",135,1,VIOLET,BG);
   centered("Keep the top clear for a moment", 180, 1, MUTED, BG);
   frame.pushSprite(0, 0);
   calibrate();
@@ -214,7 +216,7 @@ void setup() {
   esp_task_wdt_add(nullptr);
   delay(500);
   drawPage(millis());
-  Serial.printf("[ready] version=%s heap=%u min_heap=%u largest=%u psram=%u framebuffer=28800 pages=5\n",
+  Serial.printf("[ready] version=%s heap=%u min_heap=%u largest=%u psram=%u framebuffer=28800 pages=6\n",
       VERSION, ESP.getFreeHeap(), ESP.getMinFreeHeap(), ESP.getMaxAllocHeap(), ESP.getPsramSize());
   Serial.println("[commands] n=next h=home w=dashboard s=screenshot d=private_USB_session o=test_outage");
 

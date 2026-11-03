@@ -1,8 +1,12 @@
 # DeskBuddy
 
-A tiny, colorful desk companion built on a repurposed NM-TV-154 ESP32 display. **DeskBuddy is a working name.**
+A tiny, colorful desk display built on a repurposed NM-TV-154 ESP32 display. **DeskBuddy is a working name.**
 
-Version **0.6.0** adds corrected panel colors, animated weather artwork, a seven-day forecast, avatar rotation on each Companion visit, and a phone remote that works while the display stays active. Settings live in a phone dashboard on your local network.
+Version **0.7.0** adds **Neon Arcade**, a full-screen animated cyberpunk street, and a **Bandicuss preset**. This is a customizable desk display: Companion is one optional page alongside the clock, forecasts, signal, and artwork. One firmware serves every unit; the preset changes saved settings.
+
+![Neon Arcade with the Bandicuss sign](previews/v070-neon.png)
+
+[Animated artwork preview](previews/v070-neon.html) · [Printable gift card](docs/bandicuss-setup-card.html)
 
 ![Seven character designs](previews/v050-art-lineup.png)
 
@@ -24,13 +28,14 @@ See the [field guide](docs/field-guide.md) for setup, controls, updates, and tro
 
 | Page | What it does |
 | --- | --- |
+| Neon Arcade | Animated arcade street, rain, reflections, and your display name in neon. Pure artwork, no data overlays. |
 | Companion | Choose Weather Cloud, Paperclip, Hacker Dolphin, Money Sun, Mr. Meeseeks, Pokémon Parade, or Joe Camel. |
 | Clock | Internet time, seven timezone choices, and 12/24-hour display. |
 | Weather | City search, temperature and conditions, Fahrenheit/Celsius, and labeled cached readings. |
 | This Week | Seven daily weather icons, high/low ranges, and precipitation chance. |
 | Wi-Fi Signal | Signal strength, four bars, quality label, and about 45 seconds of history. |
 
-Weather Cloud changes with the selected city's conditions. Every character has two animation frames. The dashboard preview is static. You can rename the device, arrange or disable five pages, set automatic page switching, and cycle avatars on each visit. Phone controls include Previous, Home, Next, direct page selection, and pause/resume.
+Weather Cloud changes with the selected city's conditions. Every character has two animation frames. The dashboard preview is static. You can rename the device, arrange or disable six pages, set automatic page switching, and cycle avatars on each visit. Phone controls include Previous, Home, Next, direct page selection, and pause/resume.
 
 ## Build and check
 
@@ -40,6 +45,7 @@ Toolchain used for 0.6.0: Arduino CLI 1.5.1, Arduino-ESP32 3.3.11, and TFT_eSPI 
 .\build.ps1 -Jobs 2
 node tests/dashboard.cjs
 python art/build_avatars.py
+python art/build_neon.py
 ```
 
 The build script supplies the required display configuration and partition scheme. Opening the sketch in an unconfigured Arduino IDE is insufficient. The artwork command regenerates the packed sprites, matching dashboard previews, and preview PNGs.
@@ -53,11 +59,11 @@ The build script supplies the required display configuration and partition schem
 - `previews/` — character lineup.
 - `build.ps1` and `sign-update.cjs` — build and signed-update tools.
 
-This repository starts with the source used by the device-tested 0.5.0 build. Compiled firmware packages, private signing material, configured flash dumps, and local logs are excluded. The existing packaged release is retained locally; this initial repository import does not publish a GitHub binary release.
+Compiled firmware packages, private signing material, configured flash dumps, and local logs are excluded from Git. Tested packages are retained locally; no automatic update service or public binary release is configured.
 
 ## Status and attribution
 
-The 0.5.0 build was installed and checked on the target hardware. The current changes and validation are tracked in [0.6.0 notes](docs/validation-0.6.0.md); the [0.5.0 validation](docs/validation-0.5.0.md) remains as history. Naming remains open and countdown is deferred; future app ideas are tracked in the [roadmap](docs/roadmap.md).
+The 0.5.0 build was installed and checked on the target hardware. The current changes and validation are tracked in [0.7.0 notes](docs/validation-0.7.0.md); the [0.5.0 validation](docs/validation-0.5.0.md) remains as history. Naming remains open and countdown is deferred; future app ideas are tracked in the [roadmap](docs/roadmap.md).
 
 Weather data: [Open-Meteo](https://open-meteo.com/), with CC BY 4.0 attribution. Display library: [TFT_eSPI](https://github.com/Bodmer/TFT_eSPI), whose [license is included](TFT_eSPI-license.txt). Hardware reference: [NM-TV-154](https://github.com/RockBase-iot/NM-TV-154).
 

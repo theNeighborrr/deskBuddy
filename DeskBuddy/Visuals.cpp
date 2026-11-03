@@ -7,7 +7,7 @@ namespace Visuals {
 uint16_t accent(uint8_t app){return app==0?CYAN:app==1?VIOLET:app==2?YELLOW:app==4?CORAL:LIME;}
 void bigText(TFT_eSprite& f,const char* text,int x,int y,uint8_t size,uint16_t color,uint16_t bg){f.setTextFont(1);f.setTextSize(size);f.setTextColor(color,bg);f.drawString(text,x,y,1);f.setTextSize(1);}
 void shell(TFT_eSprite& f,const char* name,uint8_t app,uint8_t page,uint8_t count){
- const char* titles[]={"> COMPANION","> LOCAL TIME","> WEATHER","> WI-FI SIGNAL","> THIS WEEK"};auto color=accent(app);
+ const char* titles[]={"> COMPANION","> LOCAL TIME","> WEATHER","> WI-FI SIGNAL","> THIS WEEK","> NEON ARCADE"};auto color=accent(app);
  f.fillRect(0,0,240,3,color);f.setTextColor(color,BG);f.drawString(titles[app],12,13,1);
  auto s=SignalMeter::reading();for(int i=0;i<4;++i){int h=3+i*3;f.fillRect(207+i*5,23-h,3,h,s.available&&i<s.bars?color:GRID);}
  f.setTextColor(MUTED,BG);String title=name;while(f.textWidth(title,1)>158&&title.length()>3)title=title.substring(0,title.length()-4)+"...";f.drawString(title,12,31,1);

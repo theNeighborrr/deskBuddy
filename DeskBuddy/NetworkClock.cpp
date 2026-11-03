@@ -74,13 +74,13 @@ bool localRequest() {
   String expected=address.toString();
   if(host!=expected&&host!=expected+":80") {
     headers();server.sendHeader("Location","http://"+expected+"/");
-    server.send(server.method()==HTTP_GET?302:403,"text/plain","Open the address on your buddy");return false;
+    server.send(server.method()==HTTP_GET?302:403,"text/plain","Open the address on your display");return false;
   }
   return true;
 }
 bool authorized() {
   if(!localRequest())return false;
-  if(token.isEmpty()||server.header("X-Buddy-Token")!=token){json(401,"{\"message\":\"Unlock the dashboard using the code on your buddy.\"}");return false;}
+  if(token.isEmpty()||server.header("X-Buddy-Token")!=token){json(401,"{\"message\":\"Unlock the dashboard using the code on your display.\"}");return false;}
   if(server.method()!=HTTP_GET)lastAction=millis();
   return true;
 }
@@ -116,7 +116,7 @@ void routes() {
     if(!localRequest())return;
     if(uint32_t(millis()-authWindow)>=60000){authWindow=millis();authFailures=0;}
     if(authFailures>=5){json(429,"{\"message\":\"Too many attempts. Wait one minute and try again.\"}");return;}
-    if(server.client().localIP()!=AP_IP&&server.arg("pin")!=pin){++authFailures;json(401,"{\"message\":\"Enter the six-digit code on your buddy.\"}");return;}
+    if(server.client().localIP()!=AP_IP&&server.arg("pin")!=pin){++authFailures;json(401,"{\"message\":\"Enter the six-digit code on your display.\"}");return;}
     lastAction=millis();if(hasSaved&&connected())setupVisible=false;json(200,String("{\"token\":")+quote(token)+"}");
   });
   server.on("/api/config",HTTP_GET,[]{if(authorized())json(200,configJson());});
@@ -188,7 +188,7 @@ void routes() {
   server.on("/api/connect",HTTP_POST,[]{
     if(!authorized())return;
     if(trying||pendingStart){json(409,"{\"message\":\"A connection is already being tested.\"}");return;}
-    if(!storeReady){json(503,"{\"message\":\"Settings storage is unavailable. Restart your buddy and try again.\"}");return;}
+    if(!storeReady){json(503,"{\"message\":\"Settings storage is unavailable. Restart your display and try again.\"}");return;}
     String ssid=server.arg("ssid"), password=server.arg("password");
     if(!validNetwork(ssid,password,server.arg("open")=="1")){
       json(400,"{\"message\":\"Check the network name, password, and timezone.\"}");return;

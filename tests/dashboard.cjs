@@ -4,12 +4,12 @@ const script=html.match(/<script>([\s\S]*?)<\/script>/)[1];
 class Element{constructor(){this.value='';this.children=[];this.hidden=false;this.disabled=false;this.files=[];}append(...v){this.children.push(...v)}replaceChildren(...v){this.children=v}setAttribute(k,v){this[k]=v}}
 const elements={};for(const [,id] of html.matchAll(/id="([^"]+)"/g))elements[id]=new Element();
 elements.signalbars.children=Array.from({length:4},()=>new Element());
-let cfg={name:'DeskBuddy',avatar:0,avatarMode:0,colorSwap:0,order:[0,1,2,3,4],rotation:20,zone:'America/Chicago',h24:0,fahrenheit:1,hasLocation:0,city:'',latitude:0,longitude:0,version:'0.6.0',configured:true,canRollback:true},calls=[],responses=[];
+let cfg={name:'DeskBuddy',avatar:0,avatarMode:0,colorSwap:0,order:[0,1,2,3,4],rotation:20,zone:'America/Chicago',h24:0,fahrenheit:1,hasLocation:0,city:'',latitude:0,longitude:0,version:'0.7.0',configured:true,canRollback:true},calls=[],responses=[];
 const storage=new Map();
 const context=vm.createContext({document:{getElementById:id=>elements[id],createElement:()=>new Element(),createTextNode:text=>({textContent:text})},sessionStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},URLSearchParams,TextDecoder,Uint8Array,DataView,FormData,console,setInterval:()=>{},setTimeout:fn=>fn(),confirm:()=>true,fetch:async(path,options)=>{calls.push({path,options});let r=responses.length?responses.shift():path==='/api/auth'?{token:'test-session'}:path==='/api/config'?cfg:path==='/api/state'?{online:true,synced:true,state:'ready',app:0,paused:false}:{};return {ok:!r.error,status:r.error||200,json:async()=>r};}});
 const run=s=>vm.runInContext(s,context),settle=()=>new Promise(r=>setImmediate(r));
 (async()=>{
- run(script);await settle();assert.equal(elements.dashboard.hidden,false);assert.equal(elements.pages.children.length,5);
+ run(script);await settle();assert.equal(elements.dashboard.hidden,false);assert.equal(elements.pages.children.length,6);
  assert.equal((html.match(/<select id="avatar">(.*?)<\/select>/s)[1].match(/<option /g)||[]).length,7);const artSeen=new Set();for(let id=0;id<7;id++){elements.avatar.value=String(id);elements.avatar.onchange();artSeen.add(elements.avatarpreview.innerHTML)}assert.equal(artSeen.size,7);elements.avatar.value='0';elements.avatar.onchange();assert.match(elements.avatarpreview.innerHTML,/<svg/);const first=elements.avatarpreview.innerHTML;elements.avatar.value='2';elements.avatar.onchange();assert.notEqual(elements.avatarpreview.innerHTML,first);
  responses.push({online:true,synced:true,signal:{available:true,rssi:-62,bars:3,quality:'Good'}});await run('poll()');assert.equal(elements.signaltext.textContent,'Good / -62 dBm');assert.equal(elements.signalbars.children.filter(x=>x.className==='on').length,3);
  responses.push({online:false,synced:true,signal:{available:false,rssi:null,bars:0,quality:'Offline'}});await run('poll()');assert.equal(elements.signaltext.textContent,'Offline / no signal');assert.equal(elements.signalbars.children.filter(x=>x.className==='on').length,0);
@@ -22,7 +22,20 @@ const run=s=>vm.runInContext(s,context),settle=()=>new Promise(r=>setImmediate(r
  await elements.next.onclick();let controlCall=calls.filter(c=>c.path==='/api/control').at(-1);assert.equal(controlCall.options.body.get('action'),'next');
  elements.remotepage.value='4';await elements.remotepage.onchange();controlCall=calls.filter(c=>c.path==='/api/control').at(-1);assert.equal(controlCall.options.body.get('app'),'4');
  responses.push({online:true,synced:true,app:4,paused:true});await run('poll()');assert.match(elements.nowplaying.textContent,/This Week/);assert.equal(elements.pause.textContent,'Resume page rotation');await elements.pause.onclick();assert.equal(calls.filter(c=>c.path==='/api/control').at(-1).options.body.get('action'),'resume');
+ // Preset changes only draft name/order/rotation; no network calls or immediate application.
+ cfg={...cfg,name:'Keep',avatar:6,avatarMode:1,colorSwap:1,order:[4,0,2],rotation:60,zone:'America/Denver',h24:1,fahrenheit:0,hasLocation:1,city:'Tokyo',latitude:35.68,longitude:139.69};
+ context.fixture=cfg;run('showConfig(fixture)');const callsBeforePreset=calls.length;
+ elements.bandicuss.onclick();assert.equal(calls.length,callsBeforePreset);assert.equal(elements.name.value,'Bandicuss');assert.equal(elements.rotation.value,'0');
+ assert.deepEqual(Array.from(run('order')),[5,0,1,2,3,4]);assert.deepEqual(Array.from(run('enabled')),[5,0,1,2,3,4]);
+ assert.equal(elements.avatar.value,'6');assert.equal(elements.avatarMode.value,'1');assert.equal(elements.colorSwap.value,'1');assert.equal(elements.zone.value,'America/Denver');assert.equal(elements.h24.value,'1');assert.equal(elements.units.value,'0');assert.equal(run('locationChoice.name'),'Tokyo');assert.equal(elements.remotepage.children.length,3);
+ assert.match(elements.notice.textContent,/then tap Save/);await elements.preferences.onsubmit({preventDefault(){}});
+ const presetSave=calls.filter(c=>c.path==='/api/settings').at(-1).options.body;
+ for(const [key,value] of Object.entries({name:'Bandicuss',order:'5,0,1,2,3,4',rotation:'0',avatar:'6',avatarMode:'1',colorSwap:'1',zone:'America/Denver',h24:'1',fahrenheit:'0',hasLocation:'1',city:'Tokyo',latitude:'35.68',longitude:'139.69'}))assert.equal(presetSave.get(key),value,key);
+ assert.equal(presetSave.has('password'),false);assert.equal(presetSave.has('ssid'),false);
+ cfg={...cfg,order:[5,0,1,2,3,4]};context.fixture=cfg;run('showConfig(fixture)');assert.equal(elements.remotepage.children.length,6);
+ elements.remotepage.value='5';await elements.remotepage.onchange();assert.equal(calls.filter(c=>c.path==='/api/control').at(-1).options.body.get('app'),'5');
+ responses.push({online:true,synced:true,app:5,paused:false});await run('poll()');assert.match(elements.nowplaying.textContent,/Neon Arcade/);
  const beforeKeepAlive=calls.filter(c=>c.path==='/api/keepalive').length;run('document.hidden=true');await run('keepAlive()');assert.equal(calls.filter(c=>c.path==='/api/keepalive').length,beforeKeepAlive);run('document.hidden=false');await run('keepAlive()');assert.equal(calls.filter(c=>c.path==='/api/keepalive').length,beforeKeepAlive+1);
  responses.push({error:401,message:'Unlock again'});await assert.rejects(()=>run('api("/api/config")'),/Unlock again/);assert.equal(elements.dashboard.hidden,true);assert.equal(storage.has('buddy-token'),false);
- console.log('PASS: seven distinct character previews/options, five pages, remote next/jump/pause, visible-tab-only keepalive, rotation and color settings, avatar preview and save, live signal bars and offline clearing, dashboard unlock, order and city payload, settings without Wi-Fi credentials, safe city text, password clearing, invalid update rejection, expired-session handling.');
+ console.log('PASS: seven distinct character previews/options, six pages and a draft-only Bandicuss preset, remote next/jump/pause, visible-tab-only keepalive, rotation and color settings, avatar preview and save, live signal bars and offline clearing, dashboard unlock, order and city payload, settings without Wi-Fi credentials, safe city text, password clearing, invalid update rejection, expired-session handling.');
 })().catch(e=>{console.error(e);process.exitCode=1});
