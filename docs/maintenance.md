@@ -11,7 +11,7 @@ NM-TV-154, classic ESP32-D0WD-V3, 4 MiB flash, no PSRAM, ST7789 240×240 display
 | Display reset | Not wired |
 | LCD power / backlight | GPIO 21 LOW / 19 LOW |
 | Capacitive touch | GPIO 32 / T9 |
-| Display | Rotation 0, RGB order, inversion enabled, CGRAM offset |
+| Display | Rotation 0, BGR order, inversion enabled, CGRAM offset |
 | CPU / flash | 240 MHz, DIO at 40 MHz, 4 MiB |
 
 The display uses a 28,800-byte packed 4-bit framebuffer. Artwork is generated from `art/build_avatars.py`; commit regenerated `AvatarArt.h` and `DashboardPage.h` together.
@@ -37,7 +37,7 @@ Source hashes in `source-sha256-0.5.0.json` identify the exact 21 firmware files
 `DeskBuddy/ReleasePublicKey.h` is safe to publish. Its matching private signing key is held outside this repository and is needed for updates accepted by already-installed units.
 
 ```powershell
-node sign-update.cjs firmware/DeskBuddy.ino.bin 0.5.0 PATH-TO-PRIVATE-KEY firmware/companion-0.5.0.buddy
+node sign-update.cjs firmware/DeskBuddy.ino.bin 0.6.0 PATH-TO-PRIVATE-KEY firmware/companion-0.6.0.buddy
 ```
 
 Use the version of the firmware actually being signed. Never commit the private key. A contributor can compile without it, but cannot sign an update accepted by these units. Key replacement requires a deliberate trust migration. The package magic remains `DBFW030`; it is a format identifier, not the current release version.
@@ -53,7 +53,7 @@ Use the version of the firmware actually being signed. Never commit the private 
 
 Prefer signed wireless updates once the `min_spiffs` layout is installed. A merged image at 0x0 is for first installation on matching hardware and replaces settings. After wireless updates, determine the running and selected slot before USB recovery; do not assume app0 is active. Version 0.2.0 requires a one-time partition migration with NVS preserved. No eFuse changes are needed.
 
-The original [prototype reference](prototype-reference.txt) contains the complete installation, access, and serial diagnostic notes. USB diagnostic `d` exposes a temporary development session; do not publish its output.
+The historical 0.5.0 [prototype reference](prototype-reference.txt) contains serial diagnostics and earlier installation notes. Use the current field guide for the new dashboard behavior and display color order. USB diagnostic `d` exposes a temporary development session; do not publish its output.
 
 ## Before a release
 
@@ -65,3 +65,27 @@ The original [prototype reference](prototype-reference.txt) contains the complet
 6. Record hashes, test scope, and remaining limitations; update the field guide and version notes.
 
 The repository excludes compiled outputs and the previous local test logs. [0.5.0 validation](validation-0.5.0.md) summarizes the completed hardware checks.
+
+## 0.6.0 state and diagnostics
+
+Settings use `appcfg6` and migrate separately from previous versions. The five-page array and new avatar/color preferences are copied and validated before writing. Old records are retained for downgrade. Forecast cache uses `weather6`; the first upgraded boot fetches a new seven-day response.
+
+The local dashboard server and the on-screen access card have independent lifetimes. Successful unlock returns to normal rendering. Authenticated remote and keepalive POSTs refresh the ten-minute inactivity timer; status GETs do not. Visible browser tabs send keepalive every 25 seconds. Firmware uploads retain the dedicated update screen and block remote navigation.
+
+`/api/control` accepts `next`, `previous`, `home`, `page` (with an enabled app ID), `pause`, and `resume`. All require the existing session token. `/api/state` reports active page/avatar, pause state, whether the access screen is visible, and the number of forecast days. No frame capture of the private access screen is allowed.
+
+Weather daily dates are formatted with the response's `utc_offset_seconds`, not the clock setting. See the [Open-Meteo API time and daily-variable definitions](https://open-meteo.com/en/docs). Current data remains usable if a seven-day payload is incomplete; the forecast shows an unavailable state instead of invented values.
+
+## 0.7.0 Neon Arcade and gift preparation
+
+Page IDs 0–4 are unchanged; `NEON_ARCADE=5`. `appcfg7` uses an explicit 80-byte ESP32 record with six page slots. A separate exact v0.6 struct migrates `appcfg6` without adding or enabling Neon Arcade. Older records are retained for rollback. The weather6 cache format is unchanged.
+
+The Bandicuss button only edits the dashboard form; Save uses the existing settings endpoint. It preserves unrelated draft preferences. The preset enables `[5,0,1,2,3,4]`, uses the name Bandicuss, and sets rotation to zero. No new endpoint or per-person firmware variant is introduced.
+
+`art/build_neon.py` generates a 7,200-byte packed background and a 475-byte pixel font plus an animated preview. The renderer expands color runs into the existing framebuffer and draws bounded animation primitives at 10 FPS. The saved display name is uppercased by the font lookup, scaled to fit the sign, and limited to the existing 18-character setting. There is no clock/weather overlay or normal page shell on the artwork page.
+
+For an intentional clean gift/reset, install Espressif's `esp-idf-nvs-partition-gen` utility and run `python tools/prepare_gift.py --output-dir firmware/gift`. This creates a 0x5000-byte settings partition containing only `deskbuddy/appcfg7`. The optional avatar, avatar-mode, color-profile, zone, h24, and fahrenheit flags preserve explicitly chosen display preferences during cleanup; defaults remain Weather Cloud, fixed mode, corrected colors, Central, 12-hour, and Fahrenheit. It does not read or flash hardware. See the [official generator documentation](https://github.com/espressif/esp-idf-nvs-partition-gen).
+
+**Writing this settings image at 0x9000 replaces all Wi-Fi settings, weather caches, and previous preference records.** Use it only for a deliberate clean handoff, after confirming the target hardware identity and partition table. Never write it to the owner's existing configured unit as part of an ordinary update. The application binary is identical to the standard release. Verify the final gift partition against the generated bytes before boot, then check first-time setup and offline artwork. No eFuse or partition-layout changes are needed.
+
+Keep the generic merged firmware's NVS blank; distribute the clean gift settings separately. No configured device flash dump should be packaged. Use [0.7.0 validation](validation-0.7.0.md) for the actual release test scope.
